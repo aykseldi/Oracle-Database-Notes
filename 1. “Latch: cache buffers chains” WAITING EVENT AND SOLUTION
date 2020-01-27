@@ -1,0 +1,158 @@
+select event, count (*) from v $ session where status = 'ACTIVE' and type <> ‘BACKGROUND 'group by event order by 1;
+
+EVENT COUNT (*)
+- - - - - - - - - - - - - - - - - - - - - - - - - -
+SQL * Net message from client 11
+SQL * Net message to client 4
+SQL * Net more data to client 1
+acknowledge over PGA limit 1
+buffer busy waits 16
+enq: TX - index contention 1
+latch free 2
+latch: cache buffers chains 126 → >> PROBLEM !!!!!
+latch: ges resource hash list 12
+log file sync 1
+row cache mutex 1
+
+The reason for the concentration on the latches is that there is too much access to a block and poorly written SQLs want to access many blocks.
+
+I questioned v $ active_session and all_objects views to detect latching data blocks.
+
+SELECT
+count (*),
+sql_id,
+nvl (o.object_name, 0) objn,
+substr (o.object_type, 0,10) otype,
+from v $ active_session_history ash
+o all_objects
+where event like ‘latch: cache buffers chains’
+group by sql_id, o.object_name, o.object_type
+having count (*)> 10
+order by count (*);
+
+COUNT (*) SQL_ID OBJN OTYPE FN BLOCKN
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+11 5j6f0kny220d3 T_xxxxxxxxxx INDEX 29 258633
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 262503
+11 3qzd3sx4wbjrs T_xxxxxxxxxx INDEX 29 251319
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 252461
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 253066
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 248931
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 251840
+11 d8ag0asp0rz1u T_xxxxxxxxxx INDEX 29 252281
+11 d8ag0asp0rz1u T_xxxxxxxxxx INDEX 29 268130
+11 3wag8b7x8745p 0 xxxxxxxxxx 3 29880
+11 3wag8b7x8745p 0 xxxxxxxxxx 3 1888
+11 bacz9njnpjn0r 0 xxxxxxxxxx 3 7616
+11 4zvc4bzpdr6ks T_xxxxxxxxxx INDEX 29 267516
+11 d8ag0asp0rz1u 0 xxxxxxxxxx 3 20576
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 11 2057911
+11 3wag8b7x8745p 0 xxxxxxxxxx 3 8840
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 255425
+11 5j6f0kny220d3 T_xxxxxxxxxx INDEX 11 2936029
+11 5j6f0kny220d3 T_xxxxxxxxxx INDEX 29 246333
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 251159
+11 461vc2ntb104z -1xxxxxxxxxx 0 0
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 261125
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 255223
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 255430
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 260745
+11 2myapqstuj2f3 T_xxxxxxxxxx INDEX 29 258329
+11 3wag8b7x8745p T_xxxxxxxxxx INDEX 29 262014
+
+.........................................................................
+
+.........................................................................
+
+.........................................................................
+
+.........................................................................
+
+I tried to reveal the SQL that queries the same object most over the above result.
+
+select sql_id, count (objn) from
+(select
+count (*),
+sql_id,
+nvl (o.object_name, ash.current_obj #) objn,
+substr (o.object_type, 0,10) otype,
+CURRENT_FILE # fn,
+CURRENT_BLOCK # blockn
+from v $ active_session_history ash
+o all_objects
+where event like ‘latch: cache buffers chains’
+and o.object_id (+) = ash.CURRENT_OBJ #
+group by sql_id, current_obj #, current_file #,
+current_block #, o.object_name, o.object_type
+having count (*)> 10
+order by count (*))
+group by sql_id
+order by count (objn) desc;
+
+SQL_ID COUNT (OBJN)
+- - - - - - - - - - - - - - - - -
+3wag8b7x8745p 764
+5j6f0kny220d3 139
+bacz9njnpjn0r 110
+d8ag0asp0rz1u 56
+17s23hxwad6ju 47
+69rgyg2v936vu 30
+4zvc4bzpdr6ks 12
+g03t3bwgx3ts5 8
+3qzd3sx4wbjrs 6
+aswgnk17fzwaa 6
+40j854t9bw8rs 3
+c6k4y1r6wkmk3 3
+d0sv8bnmskbrf 3
+1m7tjdtbfc128 3
+80cw6nqdnbc86 2
+fhadayv5vz98g 2
+9fj36q04rhc26 2
+461vc2ntb104z 2
+c8smdwbtv4vwj 1
+5tyr6az9xf87v 1
+
+I wanted to find out how many SQLs run above.
+
+select executions, buffer_gets, disk_reads, sql_text from v $ sql where sql_id = '3wag8b7x8745p';
+
+EXECUTIONS BUFFER_GETS DISK_READS SQL_TEXT
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+886609777 1570602650 0 SELECT xxxx_ANLAM FROM xxxxx.T_xxxx_TNM WHERE xxxx_CODE =
+‘Xxxxx 'AND xxxx_DEGER =: B1
+
+As a result, the SQL I found has taken 1.5 billion readings in total and is very selective. Bind Variable is not used. I can look at the execution plan for this SQL, but first I want to go to the relevant table and check if there is an index.
+
+And yes there is no index in the relevant columns in the table !!!
+
+CREATE INDEX xxxx.T_xxx_TNM_KOD_DEGER_IDX ON xx.T_xxxx_TNM
+(GNL_TNM_CODE, xxxx_DEGER)
+NOLOGGING
+TABLESPACE xxx_IX_TBS
+PCTFREE 10
+INITRANS 2
+MAXTRANS 255
+STORAGE (
+INITIAL 64K
+NEXT 1M
+MAXSIZE UNLIMITED
+MINEXTENTS 1
+MAXEXTENTS UNLIMITED
+PCTINCREASE 0
+BUFFER_POOL DEFAULT
+FLASH_CACHE DEFAULT
+CELL_FLASH_CACHE DEFAULT
+)
+NOPARALLEL;
+
+The problem seems to be resolved in terms of latch: cache buffers chains event. However, there are no other problems. That's all for now…
+
+EVENT COUNT (*)
+- - - - - - - - - - - - - - - - - - - - - - - - - -
+PGA memory operation 32
+RMAN backup & recovery I / O 4
+SQL * Net message from client 15
+SQL * Net message to client 5
+acknowledge over PGA limit 1
+buffer busy waits 96
+cursor: mutex X 6
