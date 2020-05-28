@@ -1,10 +1,10 @@
 # Oracle-Database-Notes
 
-![Latch Cache Buffer Chains](https://github.com/aykseldi/Oracle-Database-Notes/blob/master/1.%20%E2%80%9CLatch:%20cache%20buffers%20chains%E2%80%9D%20WAITING%20EVENT%20AND%20SOLUTION.md)
+* ![Latch Cache Buffer Chains](https://github.com/aykseldi/Oracle-Database-Notes/blob/master/1.%20%E2%80%9CLatch:%20cache%20buffers%20chains%E2%80%9D%20WAITING%20EVENT%20AND%20SOLUTION.md)
 
-![Sequence Contention](https://github.com/aykseldi/Oracle-Database-Notes/blob/master/2.%20%E2%80%9CEnq:%20SQ%20-%20contention%E2%80%9D%20WAIT%20EVENT%20AND%20SOLUTION.md)
+* ![Sequence Contention](https://github.com/aykseldi/Oracle-Database-Notes/blob/master/2.%20%E2%80%9CEnq:%20SQ%20-%20contention%E2%80%9D%20WAIT%20EVENT%20AND%20SOLUTION.md)
 
-![Performance Improvement of a Problematic Sql ](https://github.com/aykseldi/Oracle-Database-Notes/blob/master/3.%20Problematic%20SQL%20and%20Performance%20Improvement.md)
+* ![Performance Improvement of a Problematic Sql ](https://github.com/aykseldi/Oracle-Database-Notes/blob/master/3.%20Problematic%20SQL%20and%20Performance%20Improvement.md)
 
 
 
