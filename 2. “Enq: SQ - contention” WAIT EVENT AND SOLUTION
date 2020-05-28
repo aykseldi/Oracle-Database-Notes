@@ -32,7 +32,7 @@ enq: SQ - contention 121 → The problem seems to be caused by this event.
 
 In fact, the easiest way to detect this is to get an AWR report. When the performance problem starts in the morning, we can get an AWR report in any two hours of the morning.
 
-![SQL ordered by Executions]()
+![SQL ordered by Executions](https://github.com/aykseldi/Oracle-Database-Notes/blob/master/awr_report.png)
 
 * When I examine the insert statement above, it seems that SEQUENCE xxxxxx.SQ_BILGI sequence has been executed too many times.
 
