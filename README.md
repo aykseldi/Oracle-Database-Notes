@@ -15,9 +15,7 @@ branch. Pull requests are warmly welcome."
 
 ## Links
 
-Even though this information can be found inside the project on machine-readable
-format like in a .json file, it's good to include a summary of most useful
-links to humans using your project. You can include links like:
+
 
 - Project homepage: https://github.com/aykseldi/Oracle-Database-Notes/edit/master/README.md
 - Repository: https://github.com/aykseldi/Oracle-Database-Notes/
