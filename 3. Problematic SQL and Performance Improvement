@@ -1,45 +1,74 @@
-Performance Improvement of a Problematic SQL in ORACLE 11.2.0.4 VT
+# Performance Improvement of a Problematic SQL in ORACLE 11.2.0.4 VT
 
-There was A serious slowdown in our system and I will explain the steps to solve this step by step.
+> There was A serious slowdown in our system and I will explain the steps to solve this step by step.
 
+* First I woluld like to check counts of events. 
+
+```shell
     select event, count (*) from v $ session where status = 'ACTIVE' and type <> ‘BACKGROUND 'group by event order by 1; We ran the query. The result of this query is single block reading with db file sequential read. Single block readings are generally seen when index usage occurs.
+ ```
+ ![DB file sequential read](https://github.com/aykseldi/Oracle-Database-Notes/blob/master/awr_report_2.png)
 
-2. When we examine the AWR report, it is seen that SQL, whose SQL ID is fadf88pgsj6tc, takes a long time.
 
-3. Also this is what SQL gets to buffer too much. It is even seen that almost all other employees have read more than Buffer Get made by SQL.
+The result of this query is single block reading with db file sequential read. Single block readings are generally seen when index usage occurs.
 
-4. Now that we have found the SQL we consider to be problematic, in order to find out how this is the execution plan;
+* When we examine the AWR report, it is seen that SQL, whose SQL ID is fadf88pgsj6tc, takes a long time.
 
+
+(https://github.com/aykseldi/Oracle-Database-Notes/blob/master/awr_report_3.png)
+
+> Also this SQL makes  too much buffer gets . It is even seen that this SQL makes most buffer-get reads than all others  have   done so far.
+
+* Now that we have found the SQL we consider to be problematic, we should find out how its execution plan works;
+
+```shell
 set lines 200 pages 200
 select * from table (dbms_xplan.display_cursor ('fadf88pgsj6tc');
+```
+(https://github.com/aykseldi/Oracle-Database-Notes/blob/master/awr_report_4.png)
 
-The result shows us that the running SQL is doing a full table scan while going to some tables.
+> The result shows us that the running SQL is doing a full table scan while going to some tables.
 
-it appears that a SQL Profile is used for this SQL.
+(https://github.com/aykseldi/Oracle-Database-Notes/blob/master/awr_report_sqlprofile.png)
 
-3. Also, to see how much buffer it gets in each run of the query and how long it runs and how many lines it returns;
+> It appears that a SQL Profile is used for this SQL.
 
+* Also, the query below shows,  how much buffer it gets in each run of the query, how long it runs and how many lines it returns;
+
+```shell
 select CHILD_NUMBER, PLAN_HASH_VALUE, BUFFER_GETS / EXECUTIONS, ELAPSED_TIME / EXECUTIONS, ROWS_PROCESSED / EXECUTIONS from v $ sql where sql_id = 'fadf88pgsj6tc';
 CHILD_NUMBER PLAN_HASH_VALUE BUFFER_GETS / EXECUTIONS ELAPSED_TIME / EXECUTIONS ROWS_PROCESSED / EXECUTIONS
+```
 
-4. It is also necessary to determine whether or not this SQL is used with the autotrace when executing this same plan.
+(https://github.com/aykseldi/Oracle-Database-Notes/blob/master/awr_report_exec.png)
 
+* It is also necessary to determine whether or not this SQL is using same execution plan while it is executed with the autotrace.
+
+```shell
 set lines 200 pages 2000
 set autotrace on
+```
+
+
 
 After that, we write the sql sentence, which we identified above as problematic. (Fadf88pgsj6tc)
 
+(https://github.com/aykseldi/Oracle-Database-Notes/blob/master/awr_report_plantable.png)
+
 The result showed us that the execution plan created in the Plan Table is also used here.
 
-In order to discontinue autotrace, the set autotrace off command was issued.
+In order to stop autotrace,  set autotrace off command was issued.
 
-5. We find address and hash_value first in order to change the plan it uses.
+* We need to find address and hash_value  in order to change the plan it uses.
 
+```shell
 select address, hash_value from v $ sqlarea where sql_id = 'fadf88pgsj6tc';
 
 ADDRESS HASH_VALUE
 - - - - - - - - - - - - - -
 000000034FAD1D00 1602788140
+```
+
 
 Then we run the following command with the values ​​we find. In this way, the SQL we specify from Shared Pool will drop.
 
